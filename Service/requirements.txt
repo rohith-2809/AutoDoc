@@ -1,0 +1,17 @@
+# General web server and environment utilities
+Flask>=2.0
+Flask-Cors>=3.0
+python-dotenv>=0.20.0
+requests>=2.25.0
+
+# For the AI Generator Service (aigenerator.py)
+google-generativeai>=0.5.0
+Markdown>=3.3.0
+reportlab>=3.6.0
+
+# For the Document Builder Service (docbuilder.py)
+Pillow>=9.0.0
+python-docx>=1.1.0
+python-pptx>=0.6.0
+docx2pdf>=0.1.8
+
