@@ -6,7 +6,7 @@ import uuid
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from dotenv import load_dotenv
-
+from docx2pdf import convert
 from PIL import Image
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor
@@ -274,7 +274,7 @@ def build_document():
 
     if os.path.exists(docx_path) and os.path.getsize(docx_path) > 1000:
         try:
-            docx2pdf_convert(docx_path, pdf_path)
+            convert(docx_path, pdf_path)
             log.info("PDF saved → %s", pdf_path)
         except Exception as e:
             log.error("PDF conversion failed: %s", e)
