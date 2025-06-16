@@ -1,5 +1,4 @@
 // server.js
-
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -12,33 +11,38 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { v4: uuidv4 } = require("uuid");
 
-// Tree‑sitter setup for parsing
+// Tree-sitter setup for parsing
 const Parser = require("node-tree-sitter");
 const JavaScript = require("tree-sitter-javascript");
 const Python = require("tree-sitter-python");
 
 // -----------------------------------------------------------------------------
-// Load environment variables
+// Load environment variables for production
+// **ACTION**: Set these variables in your Render environment
 const PORT = process.env.PORT || 3001;
-const MONGO_URI =
-  process.env.MONGO_URI || "mongodb://localhost:27017/gendocai_db";
-const JWT_SECRET = process.env.JWT_SECRET || "secret";
-const DOC_BUILDER_URL = process.env.DOC_BUILDER_URL || "http://localhost:5002";
+const MONGO_URI = process.env.MONGO_URI; // No default for production safety
+const JWT_SECRET = process.env.JWT_SECRET;
+const DOC_BUILDER_URL = process.env.DOC_BUILDER_URL;
+const FRONTEND_URL = process.env.FRONTEND_URL; // e.g., "https://your-app.onrender.com"
 
 // -----------------------------------------------------------------------------
 // Initialize Express app & middleware
 const app = express();
 app.use(express.json());
-app.use(cors({ origin: true, credentials: true }));
+
+// **CHANGED**: Hardened CORS for production
+// It will only allow requests from the URL you set in the FRONTEND_URL environment variable.
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 
 // -----------------------------------------------------------------------------
 // Connect to MongoDB
+// This will use the MONGO_URI from your Render environment variables.
 mongoose
   .connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log("🟢 MongoDB connected"))
   .catch((err) => {
     console.error("🔴 MongoDB connection error:", err);
-    process.exit(1);
+    process.exit(1); // Exit if the database connection fails
   });
 
 // -----------------------------------------------------------------------------
@@ -50,7 +54,7 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.model("User", UserSchema);
 
-// --- UPGRADED: History schema now stores both prompt info and filenames ---
+// History schema
 const HistorySchema = new mongoose.Schema({
   userId: String,
   fileName: String,
@@ -123,7 +127,10 @@ app.get("/auth/me", auth, async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// Multer setup
+// Multer setup for file uploads
+// **NOTE**: Render has an ephemeral filesystem. Uploaded files will be deleted on
+// service restarts. This logic is kept as-is per your request, but for a
+// robust production app, consider a cloud storage service like AWS S3.
 const storage = multer.diskStorage({
   destination: "uploads/",
   filename: (_, file, cb) =>
@@ -132,7 +139,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
 
-// --- RESTORED: Code parsing and prompt building logic ---
+// --- Code parsing and prompt building logic ---
 function parseCode(code, ext) {
   const parser = new Parser();
   try {
@@ -172,7 +179,7 @@ function buildUmlInstructionsPrompt(code, instructions) {
   return `${UML_INSTRUCTIONS_PROMPT}\nCode:\n${code}\nInstructions:\n${instructions}`;
 }
 
-// --- UPGRADED: /generate endpoint using restored logic ---
+// --- /generate endpoint ---
 app.post("/generate", auth, upload.single("inputFile"), async (req, res) => {
   try {
     const {
@@ -186,7 +193,6 @@ app.post("/generate", auth, upload.single("inputFile"), async (req, res) => {
 
     const code = fs.readFileSync(file.path, "utf8");
 
-    // Perform parsing and prompt building from previous logic
     const parseInfo = parseCode(
       code,
       path.extname(file.originalname).toLowerCase()
@@ -197,7 +203,6 @@ app.post("/generate", auth, upload.single("inputFile"), async (req, res) => {
       instructions
     );
 
-    // Assemble the complete payload for the docbuilder
     const payload = {
       code,
       instructions,
@@ -218,15 +223,14 @@ app.post("/generate", auth, upload.single("inputFile"), async (req, res) => {
         .json({ message: "DocBuilder error", detail: resp.data });
     }
 
-    // Save the complete history record
     await History.create({
       userId: req.user.id,
       fileName: file.originalname,
       format: format,
-      parseInfo: parseInfo, // Save parsed info
-      projectInfo: projectInfoPayload, // Save generated prompt
-      umlInstructions: umlInstructionsPayload, // Save generated prompt
-      generatedFiles: resp.data, // Save the filenames from the response
+      parseInfo: parseInfo,
+      projectInfo: projectInfoPayload,
+      umlInstructions: umlInstructionsPayload,
+      generatedFiles: resp.data,
     });
 
     res.json(resp.data);
@@ -273,8 +277,8 @@ app.get("/download/:filetype/:filename", auth, async (req, res) => {
   try {
     const { filetype, filename } = req.params;
     const fileUrl = `${DOC_BUILDER_URL}/download/${filetype}/${filename}`;
-    console.log(`Proxying download request for: ${fileUrl}`);
 
+    // **REMOVED**: unnecessary console.log from this proxy endpoint.
     const response = await axios({
       method: "GET",
       url: fileUrl,
