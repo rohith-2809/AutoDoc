@@ -70,7 +70,7 @@ def proxy_uml():
     # This endpoint is kept for potential direct testing but is not used in the main flow.
     payload = request.get_json(force=True)
     resp = requests.post(
-        os.getenv("UML_AGENT_URL", "http://localhost:5001") + "/generate-uml-image",
+        os.getenv("UML_AGENT_URL", "https://umlgenerator.onrender.com") + "/generate-uml-image",
         json={
             "build_id":     payload.get("build_id", "default"),
             "abstract":     payload.get("abstract", ""),
@@ -111,7 +111,7 @@ def build_document():
     log.info("Requesting markdown from parent agent for build [%s]", build_id)
     try:
         md_resp = requests.post(
-            os.getenv("PARENT_AGENT_URL", "http://localhost:5000") + "/generate-doc",
+            os.getenv("PARENT_AGENT_URL", "https://aiagent-xyq4.onrender.com") + "/generate-doc",
             json={
                 "code":          data.get("code"),
                 "project_info":  data.get("project_info"),
@@ -134,7 +134,7 @@ def build_document():
     os.makedirs(build_diagrams_dir, exist_ok=True)
     try:
         uml_resp = requests.post(
-            os.getenv("UML_AGENT_URL", "http://localhost:5001") + "/generate-uml-image",
+            os.getenv("UML_AGENT_URL", "https://umlgenerator.onrender.com") + "/generate-uml-image",
             json={
                 "build_id":     build_id,
                 "abstract":     data.get("abstract",""),
